@@ -1,0 +1,641 @@
+---
+title: "Data analysis about customers' subscription"
+author: "Yansong Li"
+date: "2024-03-29"
+output: pdf_document
+---
+
+Note: This file only contains the procedures for performing analysis in R. Please refer to the link posted on the resume to access the complete data analysis report.
+
+```{r}
+library(ggplot2)
+# install.packages(glmnet)
+library(dplyr)
+library(MASS)
+library(car)
+library(rms)
+library(caret)
+library(pROC)
+library(glmnet)
+```
+
+# Load the data into R
+```{r}
+data=read.csv("data_subscription.csv")
+```
+
+# Check Outlier for predictor 1 (Years of Using Service)
+
+```{r}
+# Distribution of Years of Using Service
+ggplot(data, aes(x = subscription_age)) + 
+  geom_histogram(binwidth = 0.5, fill = "skyblue", color = "black") +
+  theme_minimal() +
+  labs(title="How Many Year Has the Customer Use the Service",
+       x="Year") 
+
+# Calculating outliers cutoff
+Q1 <- quantile(data$subscription_age, 0.25)
+Q3 <- quantile(data$subscription_age, 0.75)
+IQR<- Q3 - Q1
+Q3 + 1.5 * IQR
+
+
+# Years of Using Service - Outlier in 6.86
+ggplot(data, aes(x=subscription_age))+
+  geom_boxplot(alpha=0.9,outlier.colour="red",outlier.size=0.3,outlier.shape =19) +
+  theme_minimal()+
+  geom_text(aes(x=8.9, label="outliers cutoff:6.86", y=0.36), colour="blue", angle=0, size = 3.5,
+            text=element_text(size=0.05)) +
+  geom_vline(xintercept=6.85,linetype="dashed", color = "blue", size = 0.5)+
+  labs(title="Distribution of How Many Years Used",
+       x="Year") 
+```
+
+# Check Outlier for predictor 2 (Years Remaining for Customer Contracts)
+
+```{r}
+# Distribution of Years Remaining for Customer Contracts
+ggplot(data, aes(x = reamining_contract)) + 
+  geom_histogram(binwidth = 0.1, fill = "lightgreen", color = "black") +
+  theme_minimal() +
+  labs(title="Years Remaining for Customer Contract",
+       x="Years") 
+
+# No outliers
+ggplot(data, aes(x=reamining_contract))+
+  geom_boxplot(alpha=0.9,outlier.colour="red",outlier.size=0.3,outlier.shape =19) +
+  theme_minimal()+
+  labs(title="Distribution of Years Remaining for Customer Contract",
+       x="Years") 
+```
+
+# Check Outlier for predictor 3 (Upload Average Usage in Last 3 Months (GB))
+
+```{r}
+# Distribution of Upload Average Usage in Last 3 Months (GB)
+ggplot(data, aes(x = upload_avg)) + 
+  geom_histogram(binwidth = 1, fill = "salmon", color = "black") +
+  theme_minimal() +
+  labs(title="Last Three Months Upload Average (GB)",
+       x="Upload Average (GB)") 
+
+# Calculating outliers cutoff
+Q1 <- quantile(data$upload_avg, 0.25, na.rm = TRUE)
+Q3 <- quantile(data$upload_avg, 0.75, na.rm = TRUE)
+IQR <- Q3 - Q1
+Q3 + 1.5 * IQR
+
+# Outlier cutoffs 11.25
+ggplot(data, aes(x=upload_avg))+
+  geom_boxplot(alpha=0.9,outlier.colour="red",outlier.size=0.3,outlier.shape =19) +
+  theme_minimal()+
+  geom_vline(xintercept=11.25,linetype="dashed", color = "blue", size = 0.5)+
+  geom_text(aes(x=100, label="outliers cutoff:11.25", y=0.36), colour="blue", angle=0, size = 3.5,
+            text=element_text(size=0.05)) +
+  labs(title="Distribution of Upload Average in Last Three Months",
+       x="Upload Average (GB)") 
+```
+
+# Check Outlier for predictor 4 (Download Usage in Last 3 Months(GB)
+
+```{r}
+# Distribution of Download Usage in Last 3 Months(GB)
+ggplot(data, aes(x = download_avg)) + 
+  geom_histogram(binwidth = 10, fill = "pink", color = "black") +
+  theme_minimal() +
+  labs(title="Last Three Months Internet Usage (GB)",
+       x="Usage (GB)") 
+
+# Calculating outliers cutoff
+Q1 <- quantile(data$download_avg, 0.25, na.rm = TRUE)
+Q3 <- quantile(data$download_avg, 0.75, na.rm = TRUE)
+IQR <- Q3 - Q1
+Q3 + 1.5 * IQR
+
+
+# Outlier cutoff: 141
+ggplot(data, aes(x=download_avg))+
+  geom_boxplot(alpha=0.9,outlier.colour="red",outlier.size=0.3,outlier.shape =19) +
+  theme_minimal()+
+  geom_vline(xintercept=141,linetype="dashed", color = "blue", size = 0.5)+
+  geom_text(aes(x=1000.9, label="outliers cutoff:141", y=0.36), colour="blue", angle=0, size = 3.5,
+            text=element_text(size=0.05)) +
+  labs(title="Distribution of Internet Usage in Last Three Months",
+       x="Usage (GB)") 
+```
+
+# Check Outlier for predictor 5 (Bill Average In Last 3 Months)
+
+```{r}
+# Distribution of Bill Average In Last 3 Months
+ggplot(data, aes(x = bill_avg)) + 
+  geom_histogram(binwidth = 2, fill = "purple", color = "black") +
+  theme_minimal() +
+  labs(title="Last Three Months Bill Avgerage",
+       x="Bill Amount") 
+
+# Calculating outliers cutoff
+Q1 <- quantile(data$bill_avg, 0.25)
+Q3 <- quantile(data$bill_avg, 0.75)
+IQR <- Q3 - Q1
+Q3 + 1.5 * IQR
+
+# Outlier cutoff: 35.5
+ggplot(data, aes(x=bill_avg))+
+  geom_boxplot(alpha=0.9,outlier.colour="red",outlier.size=0.3,outlier.shape =19) +
+  theme_minimal()+
+  geom_vline(xintercept=35.5,linetype="dashed", color = "blue", size = 0.5)+
+  geom_text(aes(x=107.9, label="outliers cutoff:35.5", y=0.36), colour="blue", angle=0, size = 3.5,
+            text=element_text(size=0.05)) +
+  labs(title="Distribution of Bill Average in Last Three Months",
+       x="Bill Amount") 
+```
+
+# Data Cleaning 
+
+```{r}
+# Based on the boxplot, remove these outliers 
+data1 <- data %>%
+  dplyr::select(subscription_age,bill_avg,reamining_contract,service_failure_count,download_avg,upload_avg,download_over_limit,is_tv_subscriber) %>%
+  filter(subscription_age <= 6.85 & subscription_age >=0 & bill_avg <= 35.5 & bill_avg >=0 & download_avg <= 141 & download_avg >=0 & upload_avg <= 11.25 & upload_avg >=0)
+
+data1[is.na(data1)] <- 0.00
+
+
+# Calculate SD
+summary (data1)
+sd(data1$is_tv_subscriber)
+sd(data1$subscription_age)
+sd(data1$bill_avg)
+sd(data1$reamining_contract)
+sd(data1$service_failure_count)
+sd(data1$download_avg)
+sd(data1$upload_avg)
+sd(data1$download_over_limit)
+```
+
+# Distribution for Response Variable (whether subscribe)
+
+```{r}
+countstv1 <- table(data1$is_tv_subscriber)
+countstv1_df <- as.data.frame(countstv1)
+
+ggplot(data1, aes(x=factor(is_tv_subscriber))) + 
+  geom_bar(aes(y = ..count..), fill = "skyblue", color = "black") +
+  geom_text(stat='count', aes(label=..count.., y=..count..), vjust=-0.5) +
+  theme_minimal() +
+  labs(title="If Customer Has A TV Subscription?",
+        x = "Whether or not")
+```
+
+# New ditributions for predictor 1-5 after data cleaning 
+
+```{r}
+# Predictor 1
+ggplot(data1, aes(x = subscription_age)) + 
+  geom_histogram(binwidth = 0.5, fill = "skyblue", color = "black") +
+  theme_minimal() +
+  labs(title="Distribution of How Many Years Used",
+       subtitle = "After Removing Outliers",
+       x="Years")
+as_tibble(data1) %>% 
+  ggplot(aes(x=subscription_age,fill= as.factor(is_tv_subscriber))) + 
+  geom_histogram(position="dodge",binwidth=0.17) +
+   labs(title="Distribution of Years Using Service",
+       subtitle = "Classified by response variable",
+       x = "Years", 
+       fill = "Whether subscribe TV")
+ggplot(data1, aes(x=as.factor(is_tv_subscriber), y= subscription_age, fill=as.factor(is_tv_subscriber)))+
+  geom_boxplot(alpha=0.9,outlier.colour="red",outlier.size=0.3,outlier.shape =19) +
+  theme(legend.position="none") +
+  scale_x_discrete(labels = c("No Subscription", "Subscription")) +
+  labs(title="Distribution of Years Using Service",
+       x = "Whether to Subscribe",
+       y = "Years") 
+
+# Predictor 2
+ggplot(data1, aes(x = reamining_contract)) + 
+  geom_histogram(binwidth = 0.3, fill = "lightgreen", color = "black") +
+  theme_minimal() +
+  labs(title="Years Remaining for Customer Contract",
+       x="Years")
+as_tibble(data1) %>% 
+  ggplot(aes(x=reamining_contract,fill= as.factor(is_tv_subscriber))) + 
+  geom_histogram(position="dodge",binwidth=0.25) +
+  labs(title="Distribution of Years Remaining for Customer Contract",
+       subtitle = "Classified by response variable",
+       x = "Years", 
+       fill = "Whether subscribe TV")
+ggplot(data1, aes(x=as.factor(is_tv_subscriber), y= reamining_contract, fill=as.factor(is_tv_subscriber)))+
+  geom_boxplot(alpha=0.9,outlier.colour="red",outlier.size=0.3,outlier.shape =19) +
+  theme(legend.position="none") +
+  scale_x_discrete(labels = c("No Subscription", "Subscription")) +
+  labs(title="Distribution of Years Remaining for Customer Contract",
+       x = "Whether to Subscribe",
+       y = "Years") 
+
+# Predictor 3
+ggplot(data1, aes(x = upload_avg)) + 
+  geom_histogram(binwidth = 0.8, fill = "salmon", color = "black") +
+  theme_minimal() +
+  labs(title="Distribution of Upload Average in Last Three Months",
+       subtitle = "After Removing Outliers",
+       x="Upload Average (GB)") 
+as_tibble(data1) %>% 
+  ggplot(aes(x=upload_avg,fill= as.factor(is_tv_subscriber))) + 
+  geom_histogram(position="dodge",binwidth=0.6) +
+  labs(title="Distribution of Upload Average in Last Three Months",
+       subtitle = "Classified by response variable",
+       x = "Upload Average (GB)", 
+       fill = "Whether subscribe TV")
+ggplot(data1, aes(x=as.factor(is_tv_subscriber), y= upload_avg, fill=as.factor(is_tv_subscriber)))+
+  geom_boxplot(alpha=0.9,outlier.colour="red",outlier.size=0.3,outlier.shape =19) +
+  theme(legend.position="none") +
+  scale_x_discrete(labels = c("No Subscription", "Subscription")) +
+  labs(title="Distribution of Upload Average in Last Three Months",
+       x = "Whether to Subscribe",
+       y = "Upload Average (GB)") 
+
+
+# Predictor 4
+ggplot(data1, aes(x = download_avg)) + 
+  geom_histogram(binwidth = 10, fill = "pink", color = "black") +
+  theme_minimal() +
+  labs(title="Distribution of Internet Usage in Last Three Months",
+       subtitle = "After Removing Outliers",
+       x="Usage (GB)")
+as_tibble(data1) %>% 
+  ggplot(aes(x=download_avg,fill= as.factor(is_tv_subscriber))) + 
+  geom_histogram(position="dodge",binwidth=6) +
+  labs(title="Distribution of Download Usage in Last Three Months",
+       subtitle = "Classified by response variable",
+       x = "Download Usage (GB)", 
+       fill = "Whether subscribe TV")
+ggplot(data1, aes(x=as.factor(is_tv_subscriber), y= download_avg, fill=as.factor(is_tv_subscriber)))+
+  geom_boxplot(alpha=0.9,outlier.colour="red",outlier.size=0.3,outlier.shape =19) +
+  theme(legend.position="none") +
+  scale_x_discrete(labels = c("No Subscription", "Subscription")) +
+  labs(title="Distribution of Download Usage in Last Three Months",
+       x = "Whether to Subscribe",
+       y = "Download Usage (GB)") 
+
+# Predictor 5
+ggplot(data1, aes(x = bill_avg)) + 
+  geom_histogram(binwidth = 2, fill = "purple", color = "black") +
+  theme_minimal() +
+  labs(title="Distribution of Bill Average in Last Three Months",
+       subtitle = "After Removing Outliers",
+       x="Bill Amount")
+as_tibble(data1) %>% 
+  ggplot(aes(x=bill_avg,fill= as.factor(is_tv_subscriber))) + 
+  geom_histogram(position="dodge",binwidth=1.1) +
+  labs(title="Distribution of Bill Average in Last Three Months",
+       subtitle = "Classified by response variable",
+       x = "Bill Amount", 
+       fill = "Whether subscribe TV")
+ggplot(data1, aes(x=as.factor(is_tv_subscriber), y= bill_avg, fill=as.factor(is_tv_subscriber)))+
+  geom_boxplot(alpha=0.9,outlier.colour="red",outlier.size=0.3,outlier.shape =19) +
+  theme(legend.position="none") +
+  scale_x_discrete(labels = c("No Subscription", "Subscription")) +
+  labs(title="Distribution of Bill Average in Last Three Months",
+       x = "Whether to Subscribe",
+       y = "Bill Amount") 
+```
+
+# Analyze for confounder 1 (Download Limit reached)
+
+```{r}
+# Bar plot
+countsdo <- table(data1$download_over_limit)
+countsdo_df <- as.data.frame(countsdo)
+
+ggplot(data1, aes(x=factor(download_over_limit))) + 
+  geom_bar(aes(y = ..count..), fill = "orange", color = "black") +
+  geom_text(stat='count', aes(label=..count.., y=..count..), vjust=-0.5) +
+  theme_minimal() +
+  labs(title="Download Limit Reached Count",
+       subtitle = "In Last 3 Months",
+       x="Limit Count")
+
+# Grouped bar plot
+ggplot(data1, aes(fill = as.factor(is_tv_subscriber), x = as.factor(download_over_limit))) + 
+  geom_bar(position = "dodge") +
+  labs(title="Cofounding check with outcome",
+       subtitle = "Classified by response variable",
+       x = "Limit Count", y = "Count", fill = "Whether subscribe TV") +
+  theme_minimal()
+ggplot(data1, aes(fill = as.factor(is_tv_subscriber), x = as.factor(download_over_limit))) + 
+  geom_bar(position = "dodge") +
+  labs(title="Distribution of Download Limite Reached",
+       subtitle = "Classified by response variable",
+       x = "Limit Count", y = "Count", fill = "Whether subscribe TV")
+
+
+ggplot(data1, aes(x= as.factor(is_tv_subscriber),fill=as.factor(download_over_limit)))+
+  geom_bar(stat="count", width=0.7) +
+  scale_x_discrete(labels = c("No Subscription", "Subscription")) +
+  labs(title = "Distribution of Download Limite Reached",
+       fill = "Numbers of limit reached",
+       y = "Limit Counts",
+       x = "Whether to Subscribe")
+
+# scatterplot
+ggplot(data1, aes(download_over_limit,download_avg)) +
+  geom_point() +
+  geom_smooth(se = FALSE,method="lm") +
+  labs(x = "Limit Count", y = "Download Usage") +
+  labs(title="Cofounding check with predictor") +
+  theme_bw()
+```
+
+# Analyze for confounder 2 (Call count to call-center for service failure)
+
+```{r}
+# Bar plot
+countssf <- table(data1$service_failure_count)
+countssf_df <- as.data.frame(countssf)
+
+ggplot(data1, aes(x=factor(service_failure_count))) + 
+  geom_bar(aes(y = ..count..), fill = "gold", color = "black") +
+  geom_text(stat='count', aes(label=..count.., y=..count..), vjust=-0.5) +
+  theme_minimal() +
+  labs(title="Customer Call Count to Call Center for Service Failure",
+       subtitle = "In Last 3 Months",
+       x="Call Count")
+
+# Grouped bar plot
+ggplot(data1, aes(fill = as.factor(is_tv_subscriber), x = as.factor(service_failure_count))) + 
+  geom_bar(position = "dodge") +
+  labs(x = "Call Count", y = "Count", fill = "Whether subscribe TV") +
+  labs(title="Cofounding check with outcome",
+       subtitle = "Classified by response variable",
+       x = "Call Count", y = "Count", fill = "Whether subscribe TV")+
+  theme_minimal()
+ggplot(data1, aes(fill = as.factor(is_tv_subscriber), x = as.factor(service_failure_count))) + 
+  geom_bar(position = "dodge") +
+  labs(x = "Call Count", y = "Count", fill = "Whether subscribe TV") +
+  labs(title="Distribution of Call Count to Call Center",
+       subtitle = "Classified by response variable",
+       x = "Call Count", y = "Count", fill = "Whether subscribe TV")
+
+ggplot(data1, aes(x= as.factor(is_tv_subscriber),fill=as.factor(service_failure_count)))+
+  geom_bar(stat="count", width=0.7) +
+  scale_x_discrete(labels = c("No Subscription", "Subscription")) +
+  labs(title = "Distribution of Call Count to Call Center",
+       fill = "Numbers of calls",
+       y = "Call Counts",
+       x = "Whether to Subscribe")
+
+
+# Scatterplot 
+ggplot(data1, aes(service_failure_count,upload_avg)) +
+  geom_point() +
+  geom_smooth(se = FALSE,method="lm") +
+  labs(x = "Call Count", y = "Upload Average") +
+  labs(title="Cofounding check with predictor")+
+  theme_bw()
+```
+
+# Model 1: Fitting the model with all predictors = Final Model
+
+```{r}
+logit.mod1 <- glm(is_tv_subscriber ~ ., family = binomial(link = logit), data = data1)
+summary(logit.mod1)
+```
+
+# Model 2: BIC Selection
+
+```{r}
+sel.var.bic <- step(logit.mod1, trace = 0, k = log(nrow(data1)), direction = "both") 
+select_var_bic<-attr(terms(sel.var.bic), "term.labels")   
+select_var_bic
+
+logit.mod2 <- glm(is_tv_subscriber ~ subscription_age + bill_avg + reamining_contract + download_avg + upload_avg + download_over_limit, family = binomial, data = data1) 
+summary(logit.mod2)
+```
+
+# Model 3: AIC Selection
+
+```{r}
+sel.var.aic <- step(logit.mod1, trace = 0, k = 2, direction = "both") 
+select_var_aic<-attr(terms(sel.var.aic), "term.labels")   
+select_var_aic
+```
+
+# Model 4: LASSSO Selection
+
+```{r}
+set.seed(1007208406)
+cv.out <- cv.glmnet(x = as.matrix(data1[,1:7]), y = data1$is_tv_subscriber, family = "binomial", type.measure = "class", alpha = 0.5)
+best.lambda <- cv.out$lambda.1se
+co <- coef(cv.out, s = "lambda.1se")
+thresh <- 0.00
+inds <- which(abs(co) > thresh)
+variables <- row.names(co)[inds]
+sel.var.lasso <- variables[!(variables %in% '(Intercept)')]
+sel.var.lasso
+```
+
+## Likelihood ratio test
+
+```{r}
+### The LRT ###
+lrtest(logit.mod1, logit.mod2)
+```
+
+# Model calibration with cross-validation
+
+```{r}
+lrm.final <- lrm(is_tv_subscriber ~., data = data1[,which(colnames(data1) %in% c(select_var_aic, "is_tv_subscriber"))], x =TRUE, y = TRUE, model= T)
+cross.calib <- calibrate(lrm.final, method="crossvalidation", B=10) # model calibration
+plot(cross.calib, las=1, xlab = "Predicted Probability", main = "Calibration Curve")
+```
+
+## Discrimination with ROC curve
+
+```{r}
+p <- predict(lrm.final, type = "fitted")
+
+roc_logit <- roc(data1$is_tv_subscriber~ p)
+## The True Positive Rate ##
+TPR <- roc_logit$sensitivities
+## The False Positive Rate ##
+FPR <- 1 - roc_logit$specificities
+
+plot(FPR, TPR, xlim = c(0,1), ylim = c(0,1), type = 'l', lty = 1, lwd = 2,col = 'red', main = "Receiver Operating Characteristic Curve")
+abline(a = 0, b = 1, lty = 2, col = 'blue')
+text(0.7,0.4,label = paste("AUC = ", round(auc(roc_logit),2)))
+
+auc(roc_logit)
+```
+
+# Check VIF For Final Model (Model1&3)
+
+```{r}
+vif(logit.mod1)
+```
+
+# Check VIF For Model 2
+
+```{r}
+vif(logit.mod2)
+```
+
+
+# Dfbetas and Deviance residuals
+
+## Year for Using Service
+```{r}
+df.final <- dfbetas(logit.mod1)
+head(df.final)
+
+par(family = 'serif')
+plot(data1$subscription_age , df.final[,1], xlab= 'Year Used for Service', 
+     ylab='dfbeta')
+lines(lowess(data1$subscription_age , df.final[,1]), lwd=2, col='red')
+abline(h=0, lty='dotted')
+abline(h=-2/sqrt(nrow(df.final)), lty='dotted')
+abline(h=2/sqrt(nrow(df.final)), lty='dotted')
+
+res.dev <- residuals(logit.mod1, type = "deviance")
+par(family = 'serif')
+plot(data1$subscription_age, res.dev, xlab='Year Used for Service', 
+     ylab='Deviance Residuals')
+lines(lowess(data1$subscription_age, res.dev), lwd=2, col='red')
+abline(h=0, lty='dotted')
+```
+
+## Bill average
+```{r}
+df.final <- dfbetas(logit.mod1)
+head(df.final)
+
+par(family = 'serif')
+plot(data1$bill_avg , df.final[,2], xlab='Bill Average', 
+     ylab='dfbeta')
+lines(lowess(data1$bill_avg , df.final[,2]), lwd=2, col='red')
+abline(h=0, lty='dotted')
+abline(h=-2/sqrt(nrow(df.final)), lty='dotted')
+abline(h=2/sqrt(nrow(df.final)), lty='dotted')
+
+
+res.dev <- residuals(logit.mod1, type = "deviance")
+par(family = 'serif')
+plot(data1$bill_avg, res.dev, xlab='Bill Average', 
+     ylab='Deviance Residuals')
+lines(lowess(data1$bill_avg, res.dev), lwd=2, col='red')
+abline(h=0, lty='dotted')
+```
+
+## Contract remaining
+```{r}
+df.final <- dfbetas(logit.mod1)
+head(df.final)
+
+par(family = 'serif')
+plot(data1$reamining_contract , df.final[,3], xlab='Contract Remaining Years', 
+     ylab='dfbeta')
+lines(lowess(data1$reamining_contract , df.final[,3]), lwd=2, col='red')
+abline(h=0, lty='dotted')
+abline(h=-2/sqrt(nrow(df.final)), lty='dotted')
+abline(h=2/sqrt(nrow(df.final)), lty='dotted')
+
+
+res.dev <- residuals(logit.mod1, type = "deviance")
+par(family = 'serif')
+plot(data1$reamining_contract, res.dev, xlab='Contract Remaining Year', 
+     ylab='Deviance Residuals')
+lines(lowess(data1$reamining_contract, res.dev), lwd=2, col='red')
+abline(h=0, lty='dotted')
+```
+
+## Number of Calling Call center
+```{r}
+df.final <- dfbetas(logit.mod1)
+head(df.final)
+
+par(family = 'serif')
+plot(data1$service_failure_count , df.final[,4], xlab='Number of Calls to Call center', 
+     ylab='dfbeta')
+lines(lowess(data1$service_failure_count , df.final[,4]), lwd=2, col='red')
+abline(h=0, lty='dotted')
+abline(h=-2/sqrt(nrow(df.final)), lty='dotted')
+abline(h=2/sqrt(nrow(df.final)), lty='dotted')
+
+
+res.dev <- residuals(logit.mod1, type = "deviance")
+par(family = 'serif')
+plot(data1$service_failure_count, res.dev, xlab='Number of Calls to Call center', 
+     ylab='Deviance Residuals')
+lines(lowess(data1$service_failure_count, res.dev), lwd=2, col='red')
+abline(h=0, lty='dotted')
+```
+
+## Download Average
+```{r}
+df.final <- dfbetas(logit.mod1)
+head(df.final)
+
+par(family = 'serif')
+plot(data1$download_avg , df.final[,5], xlab='Download Average (GB)', 
+     ylab='dfbeta')
+lines(lowess(data1$download_avg , df.final[,5]), lwd=2, col='red')
+abline(h=0, lty='dotted')
+abline(h=-2/sqrt(nrow(df.final)), lty='dotted')
+abline(h=2/sqrt(nrow(df.final)), lty='dotted')
+
+
+res.dev <- residuals(logit.mod1, type = "deviance")
+par(family = 'serif')
+plot(data1$download_avg, res.dev, xlab='Download Average (GB)', 
+     ylab='Deviance Residuals')
+lines(lowess(data1$download_avg, res.dev), lwd=2, col='red')
+abline(h=0, lty='dotted')
+```
+
+## Upload average
+```{r}
+df.final <- dfbetas(logit.mod1)
+head(df.final)
+
+par(family = 'serif')
+plot(data1$upload_avg , df.final[,6], xlab='Upload Average (GB)', 
+     ylab='dfbeta')
+lines(lowess(data1$upload_avg , df.final[,6]), lwd=2, col='red')
+abline(h=0, lty='dotted')
+abline(h=-2/sqrt(nrow(df.final)), lty='dotted')
+abline(h=2/sqrt(nrow(df.final)), lty='dotted')
+
+
+res.dev <- residuals(logit.mod1, type = "deviance")
+par(family = 'serif')
+plot(data1$upload_avg, res.dev, xlab='Upload Average (GB)', 
+     ylab='Deviance Residuals')
+lines(lowess(data1$upload_avg, res.dev), lwd=2, col='red')
+abline(h=0, lty='dotted')
+```
+
+## Download limit reach
+```{r}
+df.final <- dfbetas(logit.mod1)
+head(df.final)
+
+par(family = 'serif')
+plot(data1$download_over_limit , df.final[,7], xlab='Number of Download Limit Reached', 
+     ylab='dfbeta')
+lines(lowess(data1$download_over_limit , df.final[,7]), lwd=2, col='red')
+abline(h=0, lty='dotted')
+abline(h=-2/sqrt(nrow(df.final)), lty='dotted')
+abline(h=2/sqrt(nrow(df.final)), lty='dotted')
+
+
+res.dev <- residuals(logit.mod1, type = "deviance")
+par(family = 'serif')
+plot(data1$download_over_limit, res.dev, xlab='Number of Download Limit Reached', 
+     ylab='Deviance Residuals')
+lines(lowess(data1$download_over_limit, res.dev), lwd=2, col='red')
+abline(h=0, lty='dotted')
+```    
+
+

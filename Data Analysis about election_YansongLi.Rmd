@@ -1,0 +1,494 @@
+---
+title: "Will Liberal Party Be Re-elected?"
+author: "Yansong Li"
+date: "November 30, 2022"
+output:
+  pdf_document: default
+  word_document: default
+---
+
+Note: This file only contains the procedures for performing analysis in R. Please refer to the link posted on the resume to access the complete data analysis report.
+
+```{r}
+#install.packages("car")
+#install.packages("kableExtra")
+#install.packages("car")
+library(openintro)
+library(tidyverse)
+library(janitor)
+library(ggplot2)
+library(plotrix)
+library(car)
+library(broom)
+library(knitr)
+library(kableExtra)
+library(gridExtra)
+```
+
+## Load Data:
+
+```{r}
+census_data <- read_csv("data2_election.csv")
+survey_data <- read_csv("data1_election.csv")
+```
+
+## Data Cleaning:
+
+To adjust the format for census data
+
+```{r}
+new_census <- census_data %>% 
+  rename(gender = sex) %>% 
+  filter(education != "Trade certificate or diploma") %>%
+  mutate('education levels' = case_when(education == "High school diploma or a high school equivalency certificate" ~ "high school",
+                                       education == "Bachelor's degree (e.g. B.A., B.Sc., LL.B.)" ~ "bachelor's degree",
+                                       education == "College, CEGEP or other non-university certificate or di..." ~ "college",
+                                       education == "Less than high school diploma or its equivalent" ~ "less than high school",
+                                       education == "University certificate or diploma below the bachelor's level" ~ "less than bachelor",
+                                       education == "University certificate, diploma or degree above the bach..." ~ "above bachelor")) %>%
+  mutate('income levels' = case_when(income_family == "$25,000 to $49,99" ~ "low income",
+                                   income_family == "$75,000 to $99,999" ~ "normal income",
+                                   income_family == "$100,000 to $ 124,999" ~ "normal income",
+                                   income_family == "$50,000 to $74,999" ~ "low income",
+                                   income_family == "Less than $25,000" ~ "low income",
+                                   income_family == "$125,000 and more" ~ "high income")) %>%
+  select(gender, 'education levels', 'income levels', province)
+  
+new_census <- na.omit(new_census)
+  
+```
+
+Doing some adjustments for survey data. The main job is to classify the variables to make it perfectly match with census data.
+
+```{r}
+survey_data_liberal <- survey_data %>%
+  mutate(gender = case_when(q3 == 1 ~ "Male",
+                            q3 == 2 ~ "Female")) %>%
+  mutate(province = case_when(q4 == 1 ~ "Newfoundland and Labrador",
+                              q4 == 2 ~ "Prince Edward Island",
+                              q4 == 3 ~ "Nova Scotia",
+                              q4 == 4 ~ "New Brunswick",
+                              q4 == 5 ~ "Quebec",
+                              q4 == 6 ~ "Ontario",
+                              q4 == 7 ~ "Manitoba",
+                              q4 == 8 ~ "Saskatchewan",
+                              q4 == 9 ~ "Alberta",
+                              q4 == 10 ~ "British Columbia")) %>%
+  mutate('education levels' = case_when(q61 == 2 ~ "less than high school",
+                                       q61 == 3 ~ "less than high school",
+                                       q61 == 4 ~ "high school",
+                                       q61 == 5 ~ "high school",
+                                       q61 == 6 ~ "college",
+                                       q61 == 7 ~ "college",
+                                       q61 == 8 ~ "less than bachelor",
+                                       q61 == 9~ "bachelor's degree",
+                                       q61 == 10 ~ "above bachelor",
+                                       q61 == 11 ~ "above bachelor")) %>%
+  mutate('income levels' = case_when(q70 == 2 ~ "low income",
+                                   q70 == 3 ~ "low income",
+                                   q70 == 4 ~ "low income",
+                                   q70 == 5 ~ "normal income",
+                                   q70 == 6 ~ "normal income",
+                                   q70 == 7 ~ "high income",
+                                   q70 == 8 ~ "high income")) %>%
+  filter(q11 != 8 & q11 != 9 & q11 != 10 & q11 != -8 & q11 != -9) %>%
+  mutate('support liberal or not' = ifelse(q11 == 1, 1, 0)) %>%
+  mutate(parties = case_when(q11 == 1 ~ "Liberal",
+                              q11 == 2 ~ "Conservatives",
+                              q11 == 3 ~ "NDP",
+                              q11 == 5 ~ "Green Party",
+                              q11 == 4 | q11 == 6 | q11 == 7 ~ "Other")) %>%
+  select('support liberal or not', 'income levels','education levels',gender, province, parties)
+
+survey_data_liberal <- na.omit(survey_data_liberal)
+```
+
+## Data Visulization:
+
+```{r, fig.align='center'}
+table <- table(survey_data_liberal$parties)
+lbls <- paste(names(table), "\n", table, sep="")
+pie(table, labels = lbls,
+   main="Appendix Figure 1: Proportions of Main Parties")
+```
+
+It is obvious that liberal party and conservative party are two parties that have the larger proportion in the survey data collected in 2019. Thus, it can be a signal to indicate that either liberal party or conservative party has the highest probability to win the next Canadian election.
+
+```{r, echo=FALSE, fig.dim=c(9, 3), fig.align='center',warning=FALSE}
+survey_data_liberal %>%
+  filter(parties == "Liberal" | parties == "Conservatives") %>%
+  ggplot(aes(x= parties,fill=gender))+
+  geom_bar(stat="count", width=0.7)+
+  theme_minimal()+
+  theme(plot.title = element_text(size=16, colour = "blueviolet", face = "bold"),
+        text=element_text(family="mono"),
+        axis.title.x = element_text(colour = "gray40", size = 14, face = "bold"),
+        axis.title.y = element_text(colour = "gray40", size = 14, face = "bold"),
+        panel.background = element_rect(fill = "ivory", size = 0.01, linetype = "solid"),
+        panel.grid.major = element_line(size = 0.15, linetype = 'dotdash', colour = "gray90"), 
+        panel.grid.minor = element_line(size = 0.15, linetype = 'dotdash', colour = "gray90")) +
+   labs(title = "Figure 1: The votes between genders",
+       y = "Number of votes",
+       x = "Parties") +
+  coord_flip()
+```
+
+We can find the amount of votes for conservative and liberal which are different with respect to different genders. This difference tells us that gender may have an effect on voting amongst different parties. Therefore, it seems reasonable to use gender as a predictor to estimate election.
+
+```{r, echo=FALSE, fig.dim=c(5, 4), fig.align='center'}
+mycols <- c("mediumpurple", "orange", "darkblue")
+
+survey_data_liberal %>%
+  filter(parties == "Liberal" | parties == "Conservatives") %>%
+  ggplot(aes(x= parties,fill= `income levels`))+
+  geom_bar(stat="count", position = position_dodge(), width=0.7) +
+  scale_fill_manual(values = mycols, name="Income Groups") +
+  theme_minimal()+
+  theme(plot.title = element_text(size=14, colour = "blueviolet", face = "bold"),
+        text=element_text(family="mono"),
+        axis.title.x = element_text(colour = "gray40", size = 10, face = "bold"),
+        axis.title.y = element_text(colour = "gray40", size = 10, face = "bold"),
+        panel.background = element_rect(fill = "ivory", size = 0.01, linetype = "solid"),
+        panel.grid.major = element_line(size = 0.15, linetype = 'dotdash', colour = "gray90"), 
+        panel.grid.minor = element_line(size = 0.15, linetype = 'dotdash', colour = "gray90")) +
+   labs(title = "Figure 2: The votes between Incomes",
+       y = "Number of votes",
+       x = "Parties")
+```
+
+The number of votes are different in different income groups with respect to conservative and liberal. Thus, this phenomenon can be a reasonable signal to get the statement that different income groups has different effect on voting. In other words, it shows income groups seems to be a good predictor to estimate election.
+
+```{r}
+for_edu <- survey_data_liberal %>%
+  filter(parties == "Liberal" | parties == "Conservatives")
+
+df <- data.frame(education=as.factor(for_edu$`education levels`),
+                 vote=as.factor(for_edu$`support liberal or not`))
+df %>% tabyl(education, vote) %>%
+  adorn_totals(where = c("row", "col")) %>%
+  adorn_percentages(denominator = "row") %>%
+  adorn_pct_formatting() %>%
+  adorn_ns(position = "front") %>%
+  adorn_title(row_name = "education", col_name = "vote") 
+```
+
+Making a summary table of different education levels. Based on table, we can find that there may be certain relationship between education levels and voting. This is because there are different amount of votes between different education levels in terms of conservatives party and liberal party.
+
+```{r}
+for_proivnce <- survey_data_liberal %>%
+  filter(parties == "Liberal" | parties == "Conservatives")
+
+df <- data.frame(province=as.factor(for_proivnce$province),
+                 vote=as.factor(for_proivnce$`support liberal or not`))
+df %>% tabyl(province, vote) %>%
+  adorn_totals(where = c("row", "col")) %>%
+  adorn_percentages(denominator = "row") %>%
+  adorn_pct_formatting() %>%
+  adorn_ns(position = "front") %>%
+  adorn_title(row_name = "province", col_name = "vote") 
+```
+
+This table shows a reasonable guess that there is a relationship between voting and provinces, because different provinces have different supports on conservatives party and liberal party. The reason why we compare proportion instead of amount here is that different parties have different total amount of people, so the comparison of amount of each party is not intuitive and may be misleading.
+
+
+
+## Modeling based on survey data of liberal:
+
+We build a logistic regression model using four predictors mentioned above to predict whether the voters voted for the liberal party or not.
+
+```{r}
+model_l <- glm(`support liberal or not` ~ gender + province + `income levels` + `education levels`, data = survey_data_liberal, family="binomial")
+```
+
+
+
+## Cooking Distance:
+
+```{r,  fig.dim=c(7, 3.1), fig.align='center'}
+plot(model_l, id.n = 5, which = 4) 
+```
+
+Since not all extreme points might have an impact on the overall regression, we used standardized residual error to verify. Those with a standardized residual error of greater than 3 might have a greater impact on the overall regression, thus, it would need to be removed.
+
+
+
+## Residual Table:
+
+```{r}
+model.data <- augment(model_l) %>% 
+  mutate(index = 1:n()) 
+
+model_data <- model.data %>% top_n(5, .cooksd)
+
+e <- kable(model_data, booktabs = FALSE)
+e %>% kable_styling(latex_option = "HOLD_position", font_size = 4.5)
+```
+
+We calculated the standard residual of the 5 extreme points shown in table 6. We find there are no observations with a standard residual of greater than 3. Thus, we can say that our data did not contain any influential points and no data had to be removed.
+
+
+
+## Standard Residual Plot:
+
+```{r}
+ggplot(model.data, aes(index, .std.resid)) + 
+  geom_point(aes(color = `support liberal or not`), alpha = .5) +
+  theme_bw()+
+  labs(title = "Figure 7: Standard Residual Plot")
+```
+
+All the other residuals were plotted as shown above. This will help to visualize if there are any remaining variability in the data after fitting the model. From the figure we can see that the trend do not have any weird pattern, thus, the assumptions would hold.
+
+
+
+## VIF Table:
+
+```{r, fig.align='center'}
+vif <- vif(model_l)
+knitr::kable(vif)
+```
+
+VIF value that exceeds 5 or 10 shows a problematic amount of multicollinearity. Noticed that there does not exist any multicollinearity since the value of all variables are below 5.
+
+
+
+## Compare the distribution of each predictor in both survey data and census data
+
+```{r}
+Q1 <- survey_data_liberal %>%
+  ggplot(aes(x=gender, fill = "red"))+
+  geom_bar(stat="count", width=0.5, show.legend = FALSE)+
+  theme_minimal()+
+  theme(plot.title = element_text(size=9, colour = "blueviolet", face = "bold"),
+        text=element_text(family="mono"),
+        axis.title.x = element_text(colour = "gray40", size = 8, face = "bold"),
+        axis.title.y = element_text(colour = "gray40", size = 8, face = "bold"),
+        panel.background = element_rect(fill = "ivory", size = 0.01, linetype = "solid"),
+        panel.grid.major = element_line(size = 0.15, linetype = 'dotdash', colour = "gray90"), 
+        panel.grid.minor = element_line(size = 0.15, linetype = 'dotdash', colour = "gray90")) +
+   labs(title = "Appendix 2: Gender in Survey Data",
+       y = "Number of votes",
+       x = "Gender")
+
+Q2 <- new_census %>%
+  ggplot(aes(x=gender,fill = "red"))+
+  geom_bar(stat="count", width=0.5, show.legend = FALSE)+
+  theme_minimal()+
+  theme(plot.title = element_text(size=9, colour = "blueviolet", face = "bold"),
+        text=element_text(family="mono"),
+        axis.title.x = element_text(colour = "gray40", size = 8, face = "bold"),
+        axis.title.y = element_text(colour = "gray40", size = 8, face = "bold"),
+        panel.background = element_rect(fill = "ivory", size = 0.01, linetype = "solid"),
+        panel.grid.major = element_line(size = 0.15, linetype = 'dotdash', colour = "gray90"), 
+        panel.grid.minor = element_line(size = 0.15, linetype = 'dotdash', colour = "gray90")) +
+   labs(title = "Appendix 2: Gender in Census Data",
+       y = "Number of votes",
+       x = "Gender")
+
+grid.arrange(Q1, Q2, ncol=2, nrow =1)
+```
+
+```{r}
+Q3 <- survey_data_liberal %>%
+  ggplot(aes(x=`income levels`, fill = "blue"))+
+  geom_bar(stat="count", width=0.5, show.legend = FALSE)+
+  scale_x_discrete(guide = guide_axis(angle=25))+
+  theme_minimal()+
+  theme(plot.title = element_text(size=9, colour = "blueviolet", face = "bold"),
+        text=element_text(family="mono"),
+        axis.title.x = element_text(colour = "gray40", size = 8, face = "bold"),
+        axis.title.y = element_text(colour = "gray40", size = 8, face = "bold"),
+        panel.background = element_rect(fill = "ivory", size = 0.01, linetype = "solid"),
+        panel.grid.major = element_line(size = 0.15, linetype = 'dotdash', colour = "gray90"), 
+        panel.grid.minor = element_line(size = 0.15, linetype = 'dotdash', colour = "gray90")) +
+   labs(title = "Appendix 3: Income in Survey Data",
+       y = "Number of votes",
+       x = "Income Groups")
+
+Q4 <- new_census %>%
+  ggplot(aes(x=`income levels`,fill = "blue"))+
+  geom_bar(stat="count", width=0.5, show.legend = FALSE)+
+  scale_x_discrete(guide = guide_axis(angle=25))+
+  theme_minimal()+
+  theme(plot.title = element_text(size=9, colour = "blueviolet", face = "bold"),
+        text=element_text(family="mono"),
+        axis.title.x = element_text(colour = "gray40", size = 8, face = "bold"),
+        axis.title.y = element_text(colour = "gray40", size = 8, face = "bold"),
+        panel.background = element_rect(fill = "ivory", size = 0.01, linetype = "solid"),
+        panel.grid.major = element_line(size = 0.15, linetype = 'dotdash', colour = "gray90"), 
+        panel.grid.minor = element_line(size = 0.15, linetype = 'dotdash', colour = "gray90")) +
+   labs(title = "Appendix 3: Income in Census Data",
+       y = "Number of votes",
+       x = "Income Groups")
+
+grid.arrange(Q3, Q4, ncol=2, nrow =1)
+```
+
+```{r}
+Q5 <- survey_data_liberal %>%
+  ggplot(aes(x=province, fill = "yellow"))+
+  geom_bar(stat="count", width=0.8, show.legend = FALSE)+
+  scale_x_discrete(guide = guide_axis(angle=25))+
+  theme_minimal()+
+  theme(plot.title = element_text(size=9, colour = "blueviolet", face = "bold"),
+        text=element_text(family="mono"),
+        axis.title.x = element_text(colour = "gray40", size = 8, face = "bold"),
+        axis.title.y = element_text(colour = "gray40", size = 8, face = "bold"),
+        panel.background = element_rect(fill = "ivory", size = 0.01, linetype = "solid"),
+        panel.grid.major = element_line(size = 0.15, linetype = 'dotdash', colour = "gray90"), 
+        panel.grid.minor = element_line(size = 0.15, linetype = 'dotdash', colour = "gray90")) +
+   labs(title = "Appendix 4: Provinces in Survey Data",
+       y = "Number of votes",
+       x = "Provinces")
+
+Q6 <- new_census %>%
+  ggplot(aes(x=province, fill = "skyblue"))+
+  geom_bar(stat="count", width=0.8, show.legend = FALSE)+
+  scale_x_discrete(guide = guide_axis(angle=25))+
+  theme_minimal()+
+  theme(plot.title = element_text(size=9, colour = "blueviolet", face = "bold"),
+        text=element_text(family="mono"),
+        axis.title.x = element_text(colour = "gray40", size = 8, face = "bold"),
+        axis.title.y = element_text(colour = "gray40", size = 8, face = "bold"),
+        panel.background = element_rect(fill = "ivory", size = 0.01, linetype = "solid"),
+        panel.grid.major = element_line(size = 0.15, linetype = 'dotdash', colour = "gray90"), 
+        panel.grid.minor = element_line(size = 0.15, linetype = 'dotdash', colour = "gray90")) +
+   labs(title = "Appendix 4: Provinces in Census Data",
+       y = "Number of votes",
+       x = "Provinces")
+
+grid.arrange(Q5, Q6, ncol=2, nrow =1)
+```
+
+```{r}
+Q7 <- survey_data_liberal %>%
+  ggplot(aes(x=`education levels`, fill = "skyblue"))+
+  geom_bar(stat="count", width=0.8, show.legend = FALSE)+
+  scale_x_discrete(guide = guide_axis(angle=15))+
+  theme_minimal()+
+  theme(plot.title = element_text(size=9, colour = "blueviolet", face = "bold"),
+        text=element_text(family="mono"),
+        axis.title.x = element_text(colour = "gray40", size = 8, face = "bold"),
+        axis.title.y = element_text(colour = "gray40", size = 8, face = "bold"),
+        panel.background = element_rect(fill = "ivory", size = 0.01, linetype = "solid"),
+        panel.grid.major = element_line(size = 0.15, linetype = 'dotdash', colour = "gray90"), 
+        panel.grid.minor = element_line(size = 0.15, linetype = 'dotdash', colour = "gray90")) +
+   labs(title = "Appendix 5: Education in Survey Data",
+       y = "Number of votes",
+       x = "Education Groups")
+
+Q8 <- new_census %>%
+  ggplot(aes(x=`education levels`, fill = "skyblue"))+
+  geom_bar(stat="count", width=0.8, show.legend = FALSE)+
+  scale_x_discrete(guide = guide_axis(angle=15))+
+  theme_minimal()+
+  theme(plot.title = element_text(size=9, colour = "blueviolet", face = "bold"),
+        text=element_text(family="mono"),
+        axis.title.x = element_text(colour = "gray40", size = 8, face = "bold"),
+        axis.title.y = element_text(colour = "gray40", size = 8, face = "bold"),
+        panel.background = element_rect(fill = "ivory", size = 0.01, linetype = "solid"),
+        panel.grid.major = element_line(size = 0.15, linetype = 'dotdash', colour = "gray90"), 
+        panel.grid.minor = element_line(size = 0.15, linetype = 'dotdash', colour = "gray90")) +
+   labs(title = "Appendix 5: Education in Census Data",
+       y = "Number of votes",
+       x = "Education Groups")
+
+grid.arrange(Q7, Q8, ncol=2, nrow =1)
+```
+
+
+
+## Summary table of Model
+
+```{r}
+knitr:: kable(broom::tidy(model_l))
+```
+
+From the table above, we see the estimates of each term and their corresponding p-values. The p-values tell us whether or not the estimate is a significant value. If the p-value is less than 0.05, it suggest that the estimate is a significant value and the predictor would have an effect on the election.
+
+
+
+## The estimates of the liberal party using post-stratification
+
+```{r}
+census_data_counts <- new_census %>% group_by(gender, province, `income levels`, `education levels`) %>%
+  summarise(n=n())
+
+census_data_counts$estimate <- 
+  model_l %>%
+  predict(newdata = census_data_counts, type = "response")
+
+estimation <- census_data_counts %>% 
+  mutate(predict_prop = estimate*n) %>% ungroup() %>%
+  summarise(predict = sum(predict_prop)/sum(n))
+knitr::kable(estimation)
+```
+
+
+
+## Modeling based on survey data of conservatives
+
+```{r}
+survey_data_conservatives <- survey_data %>%
+  mutate(gender = case_when(q3 == 1 ~ "Male",
+                            q3 == 2 ~ "Female")) %>%
+  mutate(province = case_when(q4 == 1 ~ "Newfoundland and Labrador",
+                              q4 == 2 ~ "Prince Edward Island",
+                              q4 == 3 ~ "Nova Scotia",
+                              q4 == 4 ~ "New Brunswick",
+                              q4 == 5 ~ "Quebec",
+                              q4 == 6 ~ "Ontario",
+                              q4 == 7 ~ "Manitoba",
+                              q4 == 8 ~ "Saskatchewan",
+                              q4 == 9 ~ "Alberta",
+                              q4 == 10 ~ "British Columbia")) %>%
+  mutate('education levels' = case_when(q61 == 2 ~ "less than high school",
+                                       q61 == 3 ~ "less than high school",
+                                       q61 == 4 ~ "high school",
+                                       q61 == 5 ~ "high school",
+                                       q61 == 6 ~ "college",
+                                       q61 == 7 ~ "college",
+                                       q61 == 8 ~ "less than bachelor",
+                                       q61 == 9~ "bachelor's degree",
+                                       q61 == 10 ~ "above bachelor",
+                                       q61 == 11 ~ "above bachelor")) %>%
+  mutate('income levels' = case_when(q70 == 2 ~ "low income",
+                                   q70 == 3 ~ "low income",
+                                   q70 == 4 ~ "low income",
+                                   q70 == 5 ~ "normal income",
+                                   q70 == 6 ~ "normal income",
+                                   q70 == 7 ~ "high income",
+                                   q70 == 8 ~ "high income")) %>%
+  filter(q11 != 8 & q11 != 9 & q11 != 10 & q11 != -8 & q11 != -9) %>%
+  mutate('support conservatives or not' = ifelse(q11 == 2, 1, 0)) %>%
+  select('support conservatives or not', 'income levels','education levels',gender, province)
+
+survey_data_conservatives <- na.omit(survey_data_conservatives)
+
+model_c <- glm(`support conservatives or not` ~ gender + province + `income levels` + `education levels`, data = survey_data_conservatives, family="binomial")
+```
+
+
+## The estimates of the Conservatives party using post-stratification
+
+```{r}
+census_data_counts <- new_census %>% group_by(gender, province, `income levels`, `education levels`) %>%
+  summarise(n=n())
+
+census_data_counts$estimate <- 
+  model_c %>%
+  predict(newdata = census_data_counts, type = "response")
+
+estimation <- census_data_counts %>% 
+  mutate(predict_prop = estimate*n) %>% ungroup() %>%
+  summarise(predict = sum(predict_prop)/sum(n))
+knitr::kable(estimation)
+```
+
+**Summary table of predicts of each parties**
+
+| Parties | Liberal   | Conservatives |
+|---------|-----------|---------------|
+| Predict | 0.3798143 | 0.3666741     |
+
+The results for the estimates of the liberal party and the conservative party are 0.3798143 and 0.3666741. From this, we can predict that the liberal party will most likely win the next election since the predicted estimate of those that will vote for the liberal party is about 0.01 higher than the conservative party.
