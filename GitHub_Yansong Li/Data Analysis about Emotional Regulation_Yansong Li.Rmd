@@ -1,0 +1,77 @@
+---
+title: "Research on the Exercise Factors That Influence Emotional Regulation"
+author: "Yansong Li"
+date: "2023-12-03"
+output: pdf_document
+---
+
+Note: This file only contains the procedures for performing analysis in R. Please refer to the link posted on the resume to access the complete data analysis report.
+
+
+```{r}
+library(FrF2)
+```
+
+## Load the data
+
+```{r}
+data <- read.csv("data_emotion.csv")
+```
+
+## Factors and Levels
+
+When designing this experiment, we used three different factors, namely: "Type", "Duration" and "Environment" with each factor containing two levels, that means we established a 2^3^ factorial design (a total of 8 combinations). In order to increase the reliability of the experiment, we randomly assigned each combination to two participants. Therefore, we need a total of 16 participants in this experiment. The factors and corresponding levels are shown in the table below:
+
+| Factors              | Level 1               | Level 2                 |
+|----------------------|-----------------------|-------------------------|
+| Exercise Type        | Aerobic Exercise (+1) | Anaerobic Exercise (-1) |
+| Exercise Duration    | Long Duration (+1)    | Short Duration (-1)     |
+| Exercise Environment | Outdoor (+1)          | In Gym (-1)             |
+
+## Build the model
+
+```{r}
+fit.model<-lm(Rate~Type*Duration*Environment, data=data)
+```
+
+In this factorial design, we build a linear model to investigate the effects of each coefficient. The linear model for a 2^3^ design is as follows:
+
+$$y_i= \beta_0+\beta_1x_{i1}+\beta_2x_{i2}+\beta_3x_{i3}+\beta_4x_{i1}x_{i2}+\beta_5x_{i1}x_{i3}+\beta_4x_{i1}x_{i2}+\beta_6x_{i2}x_{i3}+\beta_7x_{i1}x_{i2}x_{13}+\epsilon_i$$ Since the observations are collected randomly, we assume that they are independent and normally distributed. Based on that, we can perform a hypothesis testing to investigate the significance of all main effects and interaction effects by calculating 95% confidence intervals.
+
+## Creating the cube plot
+
+```{r}
+cubePlot(fit.model,"Type","Duration","Environment", main="cube plot for rating of mood")
+```
+
+The plot above tells that different environments, durations, and types of exercise are associated with varying mood ratings. It is obvious that the highest emotion rating (9) is at the corner of the cube which indicates that outdoor, long-duration aerobic exercise can give us very positive emotion. However, the lowest emotion rating (3) is at the opposite corner, representing indoor, short-duration anaerobic exercise, implies this condition is associated with the bad emotion.
+
+## Confidence Inverval Checking
+
+```{r}
+round(2*confint.lm(fit.model),4)
+```
+
+the 95% CIs for all independent effects and interaction effects. It is obvious that the 95% CIs of all independent effects don't contain zero, which means the type, duration, and environment of exercise has significant effect on the emotion regulation. However, the 95% CIs of all interaction effects contain zero which means the interaction will not generate significant effect on the emotion regulation.
+
+## Interaction Plots Checking
+
+```{r}
+interaction.plot(data$Type,data$Duration,data$Rate, type = "l", trace.label = "Duration", xlab = "Type", ylab = "mean yeild", main = "Interaction plot for Type and Duration")
+
+interaction.plot(data$Environment,data$Duration,data$Rate, type = "l", trace.label = "Duration", xlab = "Environment", ylab = "mean yeild", main = "Interaction plot for Duration and Enviroment")
+
+interaction.plot(data$Type,data$Environment,data$Rate, type = "l", trace.label = "Environment", xlab = "Type", ylab = "mean yeild", main = "Interaction plot for Type and Environment")
+```
+
+Since the lines in each graph show a relatively parallel pattern, then we can conclude that it has no interaction effect.
+
+## Summary Table for the model
+
+```{r}
+summary(fit.model)
+```
+
+We need to multiply the standard error by 2 to get the estimated standard error of effect, and take the square of the estimated standard error of effect to get the variance of any main effect.
+
+The p-values for all interaction effects are greater than 0.05. Therefore, there are no significant interaction effects on emotion rating, which means the effects of type, duration, and environment of exercise on the emotion regulation are independent of each other.
